@@ -53,12 +53,12 @@
 	
 	<script>
 		var current_node=null;
-		var nodes=[{name:'Irancell', url:'http://192.168.0.190:8001/monitoring/?'},{name:'local', url:'http://127.0.0.1:8000/monitoring/?'}]
-		var timer=10000;
+		var nodes=[{name:'Irancell', url:'http://192.168.0.190:8001/monitoring/?'},{name:'local', url:'http://localhost:8000/s'}]
+		var timer=2000;
+		var ajax_calls = [];
 
 		$("#time_job li a").click(function(){
 			var selText = $(this).text();
-			console.log(selText);
 			if (selText=='10 s')
 			{
 				timer = 10000;
@@ -145,14 +145,13 @@
 			}
 
 			$('#nodes_tab a').click(function (e) {
-			  if (current_node == $(this)[0].innerHTML) return false
-			  var tab_text = $(this)[0].innerHTML;
-			  e.preventDefault();
-			  $(this).tab('show');
-			
-			  if ( tab_text == 'Home') $("#node_data").text("testingggg....");
-			  else get_node_data(tab_text);
-			})
+				  if (current_node == $(this)[0].innerHTML) return false
+				  var tab_text = $(this)[0].innerHTML;
+				  e.preventDefault();
+				  $(this).tab('show');			
+				  if ( tab_text == 'Home') $("#node_data").text("testingggg....");
+				  else get_node_data(tab_text);
+			});
 		}
 
 		function set_node_data(data){
@@ -166,17 +165,20 @@
 			for (var item in data){
 				if (data[item].hasOwnProperty('graph_type')){
 					var graph_type = data[item].graph_type;
-					if (graph_type == 'gauge'){
-						var get_gauge = $("div[id^="+current_node+"_"+item+"]");
-						console.log(get_gauge);
-						if (get_gauge.length){
-							get_gauge.highcharts().series[0].points[0].update(data[item].used);
+					var get_obj = $("div[id^="+current_node+"_"+item+"]");
+					if (graph_type == 'gauge'){						
+						if (get_obj.length){
+							var chart = get_obj[0];
+							$(chart).highcharts().series[0].points[0].update(parseInt(data[item].used));
 						}
-						else create_gauge2(item, 0, data[item].total, data[item].used, data[item].unit);
+						else create_gauge_modern(item, 0, data[item].total, data[item].used, data[item].unit);
 					}
-					else if (graph_type == 'text')
-					{
-						create_text(item,data[item].result);
+					else if (graph_type == 'text'){
+						if (get_obj.length){
+							var textbox = get_obj[0];
+							set_textbox_text(textbox, item, data[item].result);
+						}
+						else {create_textbox(item,data[item].result);}
 					}
 				}
 			}
@@ -189,10 +191,13 @@
 			//$("#node_data").text(JSON.stringify(data));
 		}
 
+		function clear_node_data(){
+			$("#node_data").html("<div id='node_graph' class='col-xs-12'></div><div id='node_text' class='col-xs-12'></div>");
+		}
 
-		function get_node_data(tab_text){
+		function get_node_data(tab_text){			
 			if (current_node != tab_text){
-				$("#node_data").html("<div id='node_graph' class='col-xs-12'></div><div id='node_text' class='col-xs-12'></div>");
+				clear_node_data();
 				current_node = tab_text;
 			}
 			if (current_node == null) return false
@@ -201,7 +206,9 @@
 			  dataType: "json",
 			  url: url,
 			  crossDomain:true,
-			  success: fill_node_data
+			  timeout: 2500,
+			  success: fill_node_data,
+			  fail: clear_node_data
 			});
 		}
 
@@ -212,7 +219,7 @@
 		}
 
 
-		function guid(current_node, title) {
+		function guid() {
 			  function s4() {
 				return Math.floor((1 + Math.random()) * 0x10000)
 				  .toString(16)
@@ -223,8 +230,8 @@
 		}
 
 
-		function create_gauge(title, min_value, max_value,used,unit){
-			var UUID = current_node + '_' + guid(current_node, title);
+		function create_gauge_simple(title, min_value, max_value,used,unit){
+			var UUID = current_node + '_' + guid();
 			$("#node_data").append($('<div style="display:block;float:left;" id="div_'+UUID+'"><b>' +title+ '</b></div>'));
 			var DOM_node = $('<canvas id="'+UUID+'" width="200" height="200">');
 			$("#div_"+UUID).append(DOM_node);
@@ -239,15 +246,19 @@
 			});
 		}
 
-		function create_text(title,result)
-		{
-			var UUID = current_node + '_' + guid();
-			var txt1=$('<br/><div class="alert alert-info" id="div_'+UUID+'">'+ '<b>' + title + '</b>' + ':' + result +'</div>');
-			$("#node_text").append(txt1)
+		function set_textbox_text(obj, title, result){
+			$(obj).html('<b>' + title + '</b>' + ':' + result );
 		}
 
-		function create_gauge2(title, min_value, max_value, used, unit){
-			var UUID = current_node + '_' + title + '_' + guid(current_node, title);
+		function create_textbox(title, result){
+			var UUID = current_node + '_' + title + '_' + guid();
+			var obj = $('<div class="alert alert-info" id="' + UUID + '"></div>');
+			set_textbox_text(obj, title, result);
+			$("#node_text").append(obj);
+		}
+
+		function create_gauge_modern(title, min_value, max_value, used, unit){
+			var UUID = current_node + '_' + title + '_' + guid();
 			$("#node_graph").append($('<div style="display:block;float:left;" id="div_'+UUID+'"></div>'));
 			var DOM_node = $('<div id="'+UUID+'" style="width: 300px; height: 200px; float: left"></div>');
 			$("#div_"+UUID).append(DOM_node);
