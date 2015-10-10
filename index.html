@@ -39,6 +39,7 @@
 			<li><a href="#">10 s</a></li>
 			<li><a href="#">30 s</a></li>
 			<li><a href="#">1 min</a></li>
+			<li><a href="#">5 min</a></li>
 		</ul>
 	</div>
 	<br/>
@@ -53,26 +54,42 @@
 	
 	<script>
 		var current_node=null;
-		var nodes=[{name:'Irancell', url:'http://192.168.0.190:8001/monitoring/?'},{name:'local', url:'http://localhost:8000/s'}]
-		var timer=2000;
+		var nodes=[{name:'Irancell', url:'http://10.133.104.24/monitoring/?'},{name:'local', url:'http://localhost:8000'}]
+		var timer;
 		var ajax_calls = [];
+		set_timer(30000);
 
 		$("#time_job li a").click(function(){
 			var selText = $(this).text();
-			if (selText=='10 s')
-			{
-				timer = 10000;
-			}
-			else if(selText=='30 s')
-			{
-				timer = 30000;
-			}
-			else if(selText=='1 min')
-			{
-				timer = 60000;
-			}
+			if (selText=='10 s'){ set_timer(10000);	}
+			else if(selText=='30 s'){ set_timer(30000);	}
+			else if(selText=='1 min'){ set_timer(60000); }
+			else if(selText=='5 min') { set_timer(300000); }
 			$(this).parents('.dropdown').find('#submitText').html(selText+' <span class="caret"></span>');
 		});
+
+
+		$.xhrPool = []; // array of uncompleted requests
+	    $.xhrPool.abortAll = function() { // our abort function
+	        $(this).each(function(idx, jqXHR) { 
+	            jqXHR.abort();
+	        });
+	        $.xhrPool.length = 0
+	    };
+	     
+	    $.ajaxSetup({
+	        beforeSend: function(jqXHR) { // before jQuery send the request we will push it to our array
+	            $.xhrPool.push(jqXHR);
+	        },
+	        complete: function(jqXHR) { // when some of the requests completed it will splice from the array
+	            var index = $.xhrPool.indexOf(jqXHR);
+	            if (index > -1) {
+	                $.xhrPool.splice(index, 1);
+	            }
+	        }
+	    });
+
+
 
     var gaugeOptions = {
 
@@ -146,6 +163,7 @@
 
 			$('#nodes_tab a').click(function (e) {
 				  if (current_node == $(this)[0].innerHTML) return false
+				  $.xhrPool.abortAll();
 				  var tab_text = $(this)[0].innerHTML;
 				  e.preventDefault();
 				  $(this).tab('show');			
@@ -206,7 +224,7 @@
 			  dataType: "json",
 			  url: url,
 			  crossDomain:true,
-			  timeout: 2500,
+			  timeout: 4500,
 			  success: fill_node_data,
 			  fail: clear_node_data
 			});
@@ -289,15 +307,16 @@
 		        }]
 
 		    }));
-
-		    //$(DOM_node).highcharts().series[0].points[0].update(used);
-
 		}
 
-		setInterval(function(){ get_node_data(current_node); }, timer);
-
-		function renew_values(current_node, values){
-
+		function set_timer(timer_time){			
+			try{
+				clearInterval(timer);
+			}
+			catch(err){}
+			finally{	
+				timer = setInterval(function(){ get_node_data(current_node); }, timer_time);			
+			}
 		}
 
 	</script>
